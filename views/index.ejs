@@ -1,0 +1,66 @@
+<html>
+<head>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css"> <!-- load bootstrap css -->
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script> <!-- load jQuery -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <title>FCC StockWatcher</title>
+    
+
+    <script>
+        $(document).ready(function(){
+            
+            var defaultStock = 'GOOG'           
+            var currentStocks = []
+            var str = ""
+
+            function addCurrentStocks(newStock){
+                currentStocks.push(newStock)
+                updateTitle(currentStocks)
+                makeButtons()
+            }
+            
+            function removeCurrentStocks(oldStock){
+                currentStocks.splice(currentStocks.indexOf(oldStock),1)
+                updateTitle(currentStocks)
+                makeButtons()
+            }
+
+            function updateTitle(stocks){
+                $('title').html('FCC StockWatcher - ' + stocks.join(', '))
+            }
+
+            addCurrentStocks(defaultStock)
+
+            function makeButtons(){
+                var len = currentStocks.length;
+                str = ""
+                for(i=0;i<len;i++){
+                    str += '<button class="stockBtn" id="'+currentStocks[i]+'">' + currentStocks[i] + '</button> '
+                    if(i==len-1){
+                        $('span.btnHost').html(str)
+                    }
+                }
+            }
+
+            $(document).on('click', '.stockBtn', function(){
+                removeCurrentStocks(this.id)
+            })
+
+
+            $('button.newStockButton').click(function(){
+                var newVal = $('input.newStock').val();
+                addCurrentStocks(newVal);
+                $('input.newStock').val("");
+            });
+ 
+        })
+    </script>
+</head>
+<body>
+
+<div class="container" id="graph">
+    <input class="newStock" type="text" value=""><button class="newStockButton">Add</button><br />
+    <span class="btnHost"></span>
+</div>
+</body>
+</html>

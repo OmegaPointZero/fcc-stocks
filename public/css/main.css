@@ -1,0 +1,18 @@
+.toolbar{
+    background-color: white;
+    color: #bbbb77;
+}
+
+a:link{
+    color: #bbbb77;
+    text-decoration: none;
+}
+
+a:visited{
+    color: #bbbb77;
+    text-decoration: none;
+}
+
+body{
+    background: #7777bb;
+}
