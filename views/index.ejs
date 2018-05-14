@@ -4,63 +4,72 @@
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script> <!-- load jQuery -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <title>FCC StockWatcher</title>
-    
 
     <script>
         $(document).ready(function(){
             
-            var defaultStock = 'GOOG'           
-            var currentStocks = []
-            var str = ""
-
-            function addCurrentStocks(newStock){
-                currentStocks.push(newStock)
-                updateTitle(currentStocks)
-                makeButtons()
-            }
-            
-            function removeCurrentStocks(oldStock){
-                currentStocks.splice(currentStocks.indexOf(oldStock),1)
-                updateTitle(currentStocks)
-                makeButtons()
-            }
-
-            function updateTitle(stocks){
-                $('title').html('FCC StockWatcher - ' + stocks.join(', '))
-            }
-
-            addCurrentStocks(defaultStock)
-
-            function makeButtons(){
-                var len = currentStocks.length;
-                str = ""
-                for(i=0;i<len;i++){
-                    str += '<button class="stockBtn" id="'+currentStocks[i]+'">' + currentStocks[i] + '</button> '
-                    if(i==len-1){
-                        $('span.btnHost').html(str)
-                    }
-                }
-            }
-
-            $(document).on('click', '.stockBtn', function(){
-                removeCurrentStocks(this.id)
+            $('button#submit').click(function(){
+                var stock = $('input.stock').val()
+                var type = $('select.type').val()
+                var obj = {}
+                obj.stock = stock
+                obj.type = type
+                $.post("/api/update", obj, function(data, status){
+                    console.log("Data received: " + data)
+                })
             })
 
+            function renderStockOptions(data){
+                var html = ""
+                var stocks = data.split(',')
+                for(i=0;i<stocks.length;i++){
+                    html += '<button class="StockOption" id="'+stocks[i]+'">'+stocks[i]+'</button> '
+                    if(i==stocks.length-1){
+                        $('.development').html(html)
+                    }
+                }                
+            }
 
-            $('button.newStockButton').click(function(){
-                var newVal = $('input.newStock').val();
-                addCurrentStocks(newVal);
-                $('input.newStock').val("");
-            });
- 
+            <% var tickers = [] %>
+            <% for(i=0;i<data.length;i++){%>
+                <% tickers.push(data[i].ticker)%>
+                <% if(i==data.length-1){ %>
+                    <% var initialData = tickers.join(',')%>
+                    var myData = "<%=initialData%>"
+                    alert(myData)
+                    renderStockOptions(myData)
+                <% } %>
+            <% } %>
+
+
+            var server = 'ws://' + window.location.href.split('//')[1].split(':')[0]
+            var ws = new WebSocket(server+':40510');
+            // event emmited when connected
+            ws.onopen = function () {
+                console.log('websocket is connected ...')
+                // sending a send event to websocket server
+                ws.send('connected')
+            }
+            // event emmited when receiving message 
+            ws.onmessage = function (ev) {
+                console.log(ev.data);
+                renderStockOptions(ev.data)
+            }
         })
     </script>
 </head>
 <body>
 
 <div class="container" id="graph">
-    <input class="newStock" type="text" value=""><button class="newStockButton">Add</button><br />
+    <input class="stock" type="text" value="">
+    <select class="type">
+        <option value="add">Add</option>
+        <option value="remove">Remove</option>
+    </select>
+    <button id="submit">Submit</button><br />
     <span class="btnHost"></span>
+</div>
+<div class="development" id="development">
 </div>
 </body>
 </html>
