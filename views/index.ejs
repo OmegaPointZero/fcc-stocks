@@ -2,46 +2,110 @@
 <head>
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css"> <!-- load bootstrap css -->
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script> <!-- load jQuery -->
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script> <!-- load charts.js for plotting graph -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script> <!-- load bootstrap js -->
     <title>FCC StockWatcher</title>
 
-    <script>
-        $(document).ready(function(){
-            
+    <style>
+
+        body{
+            color: white;
+            background-color: black;
+        }
+
+        button{
+            border-color: black;
+        }
+
+        div.mainContainer{
+            width: 80%;
+            height: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 3%;
+        }
+
+        div.info{
+            width: 19%;
+            border-style: solid;
+            border-color: black;
+            border-width:2px;
+        }
+
+        #myChart{
+            width: 75%
+        }
+
+    </style>
+
+</head>
+<body>
+
+
+
+<div class="mainContainer">
+    <input class="stock" type="text" value="">
+    <input class="type" name="type" type="text" value="add" hidden>
+    <button id="submit">Add</button><br />
+    <span class="btnHost"></span>
+    <canvas id="myChart"></canvas>
+    <div class="development" id="development"></div>
+</div>
+
+<script>
+            // start of graph canvas javascript
+    $(document).ready(function(){
+
+            //Array to keep track of current stocks
+            var stocks = []
+
+            // variable that exists as a test for code with variables. delete in production
+            var variable = 'variable'
+
+            var ctx = document.getElementById('myChart').getContext('2d');
+            //Button to submit either a new stock by ticker
+            // or an existing one to be removed by ticker
             $('button#submit').click(function(){
                 var stock = $('input.stock').val()
-                var type = $('select.type').val()
-                var obj = {}
-                obj.stock = stock
-                obj.type = type
+                var type = $('input.type').val()
+                var obj = {} 
+                obj.stock = stock.toUpperCase()
+                obj.type = type 
                 $.post("/api/update", obj, function(data, status){
                     console.log("Data received: " + data)
                 })
             })
 
+            //Initially rendering buttons of stocks pulled from db
             function renderStockOptions(data){
                 var html = ""
-                var stocks = data.split(',')
-                for(i=0;i<stocks.length;i++){
-                    html += '<button class="StockOption" id="'+stocks[i]+'">'+stocks[i]+'</button> '
-                    if(i==stocks.length-1){
+                for(i=0;i<data.length;i++){
+                    html += '<button class="StockOption" id="'+data[i].ticker+'">'+data[i].ticker+'</button> '
+                    if(i==data.length-1){
                         $('.development').html(html)
                     }
                 }                
             }
+            
+            //Make it so pressing enter works in text field
+            $('input.stock').keypress(function(event){
+                if(event.keyCode==13){
+                    $('button#submit').click()
+                }
+            })
 
-            <% var tickers = [] %>
-            <% for(i=0;i<data.length;i++){%>
-                <% tickers.push(data[i].ticker)%>
+            // ejs template data is array of objects with stock info
+            <%for(i=0;i<data.length;i++){ %>
+                var stockObj = {}
+                stockObj.ticker = '<%=data[i].ticker%>';
+                stockObj.rgb = '<%=data[i].rgb%>'
+                stocks.push(stockObj)
                 <% if(i==data.length-1){ %>
-                    <% var initialData = tickers.join(',')%>
-                    var myData = "<%=initialData%>"
-                    alert(myData)
-                    renderStockOptions(myData)
+                    renderStockOptions(stocks)
                 <% } %>
             <% } %>
-
-
+            
+            // websockets live updating feature server/client info
             var server = 'ws://' + window.location.href.split('//')[1].split(':')[0]
             var ws = new WebSocket(server+':40510');
             // event emmited when connected
@@ -52,24 +116,140 @@
             }
             // event emmited when receiving message 
             ws.onmessage = function (ev) {
-                console.log(ev.data);
-                renderStockOptions(ev.data)
-            }
-        })
-    </script>
-</head>
-<body>
+                console.log(ev.data)
+                var stock = JSON.parse(ev.data)
+                if(stock.type =='add'){
+                    var html = '<button class="StockOption" id="'+stock.ticker+'">'+stock.ticker+'</button> '
+                    stocks.push(stock)
+                    fetchStockData(durationOptions[0], stocks[stocks.length-1])
+                    $('.development').append(html)
+                } else if (stock.type=='remove'){
+                    /* Remove only the stockk the server says to remove*/
+                    $('button.StockOption#'+stock.ticker).remove()
+                    for(i=0;i<stocks.length;i++){
+                        if(stocks[i].ticker == stock.ticker){
+                            stocks.splice(i,1)
+                        }
+                        if(stock.ticker == dataSets[i].label){
+                            dataSets.splice(i,1)
+                            drawChart()
+                        }
+                    }
+                }
+            } // end of ws.onmessage handler
 
-<div class="container" id="graph">
-    <input class="stock" type="text" value="">
-    <select class="type">
-        <option value="add">Add</option>
-        <option value="remove">Remove</option>
-    </select>
-    <button id="submit">Submit</button><br />
-    <span class="btnHost"></span>
-</div>
-<div class="development" id="development">
+            $(document).on('click', '.StockOption', function(){
+                var obj = {}
+                var ticker = this.id
+                obj.stock = ticker
+                obj.type = 'remove'
+                $.post("/api/update", obj, function(data, status){
+                    console.log("Received '" + data + "' after post request to server.")
+                })
+            })
+
+        var dateLabels = []
+        var dataSets = []
+        var apiStr = 'https://api.iextrading.com/1.0/stock/market/batch?symbols='
+        var endStr = '&types=quote,chart&range='
+        var durationOptions = ['1y','3y','1m','3m','6m','1d','3d','5d','14d']
+        
+        function drawChart(){
+            setTimeout(function(){
+                var chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dateLabels,
+                        datasets: dataSets
+                    },
+                    options : {
+                            scales: {
+                              xAxes: [{
+                                gridLines: {
+                                  color: 'rgba(171,171,171,1)',
+                                  lineWidth: 1
+                                }
+                              }],
+                              yAxes: [{
+                                gridLines: {
+                                  color: 'rgba(171,171,171,1)',
+                                  lineWidth: 0.5
+                                }
+                              }]
+                            },
+                            responsive: true
+                          }
+                })
+            }, 250)
+            var width = $(window).width;
+            var height = $(window).height;
+            window.resizeTo(width,height)
+        }
+
+
+
+        /*construct an actual datasetsObject to pass to charts.js*/
+        var datasetsObjCont = function(label,rgb,dataArr){
+            var myDataSet = {}
+            myDataSet.label = label[0]
+            myDataSet.borderColor = rgb
+            myDataSet.data = dataArr
+            dataSets.push(myDataSet)
+            drawChart()
+            var len = stocks.length            
+            for(n=0;n<len;n++){
+                var myTicker = stocks[n].ticker
+                var myRgb = stocks[n].rgb
+                $('.StockOption#'+myTicker).css('background-color',myRgb)
+            }
+        }
+        
+        var constDataArr = function(label,rgb,chart){
+            var dataArr = []
+            console.log(chart)
+            for(i=0;i<chart.length;i++){
+                var date = chart[i].date
+                var index = dateLabels.indexOf(date)
+                dataArr[index] = chart[i].close
+                if(i==chart.length-1){
+                    datasetsObjCont(label,rgb,dataArr)
+                }
+            }
+        }
+        var dateLabelsInitialized = false;
+        //get stock data from api
+        var fetchStockData = function(option, targetStock){
+            var apiQuery = apiStr + targetStock.ticker + endStr + option
+            var thisRGB = targetStock.rgb
+            $.get(apiQuery, function(data, status){
+                /*  the returned json is full of objects, each
+                    key is a stock whose value is an object w/ 
+                    all the data. Get all those keys
+                */
+                var keys = Object.keys(data)
+                /*  do this to keys[0] because we only need 
+                    to do this once to generate the array 
+                    with all the dates in it
+                */
+                if(dateLabelsInitialized==false){
+                    for(i=0;i<data[keys].chart.length;i++){
+                        dateLabels.push(data[keys].chart[i].date)
+                    }
+                    dateLabelsInitialized=true;
+                }
+                constDataArr(keys,targetStock.rgb,data[keys].chart)
+            })
+        }
+
+        for(i=0;i<stocks.length;i++){
+            fetchStockData(durationOptions[0], stocks[i])
+        }
+
+        /* Draw the graph with charts.js by selecting <canvas#myChart> */
+        var ctx = document.getElementById('myChart').getContext('2d');
+
+    })
+</script>
 </div>
 </body>
 </html>

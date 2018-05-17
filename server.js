@@ -8,6 +8,7 @@ const session = require('express-session');
 const bodyParser = require('body-parser');
 const configDB = require('./config/database.js');
 const mongoose = require('mongoose');
+
 /*
  Thank you to Peter Chang of HackerNoon.com for the 
 WebSockets tutorial I built this on top of 
@@ -19,6 +20,8 @@ mongoose.connect(configDB.url);
 console.log('connected to mongoose...');
 
 app.use(morgan('dev')); //log reqs to console
+/* morgan('dev') logs the request path, code and exec time 
+morgan('combined') logs IP and user agent as well */
 
 //Required for passport, leave until user authentication
 

@@ -1,6 +1,23 @@
 const Stocks = require('./models/stocks.js')
+const yahooFinance = require('yahoo-finance')
 
 module.exports = (function(app,passport){
+
+    // math() and makeRand() generate random RGB value with bright colors
+    var math = function(number, index){
+        if(number*index < 256){
+            return number*index
+        } else {
+            return number
+        }
+    }
+
+    var makeRand = function(){
+        var number = Math.floor((Math.random() * 100) % 256);
+        number = math(number, 3)
+        number = math(number, 2)        
+        return number
+    }
 
     const WebSocketServer = require('ws').Server;
     wss = new WebSocketServer({port: 40510})
@@ -34,17 +51,33 @@ module.exports = (function(app,passport){
     function addCurrentStocks(newStock){
         var newstock = new Stocks();
         newstock.ticker = newStock;
+        var rgb = 'rgb('+makeRand()+','+makeRand()+','+makeRand()+',1)'
+        newstock.rgb = rgb
+        console.log(rgb)
+        /* RANDOMLY GENERATE BRIGHT RGB VALUES  */
         console.log(newstock)
         newstock.save(function(err){
             if(err) throw err
-            getCurrentStocks()
+            /* Make new independent object 
+            with same qualities but add 
+            Obj.type for wss client listeners
+            to know if they add or delete the ticker*/
+            var passObj = {}
+            passObj.ticker = newstock.ticker
+            passObj.rgb = newstock.rgb
+            passObj.type = 'add'
+            wss.broadcast(JSON.stringify(passObj))
         })
 
     }
     
     function removeCurrentStocks(oldStock){
         Stocks.remove({ticker: oldStock}, function(err){
+            var passObj = {}
+            passObj.ticker = oldStock
+            passObj.type = 'remove'
             if(err) throw err
+            wss.broadcast(JSON.stringify(passObj))
         })
     }
 
@@ -57,7 +90,7 @@ module.exports = (function(app,passport){
             addCurrentStocks(stock)
             res.send('success')
         }else if(type=="remove"){
-            console.log('Removing ' + stock + 'from Mongoose database...')
+            console.log('Removing ' + stock + ' from Mongoose database...')
             removeCurrentStocks(stock)
             res.send('success')
         } else {
@@ -66,7 +99,9 @@ module.exports = (function(app,passport){
     })
     
     app.get('/', function(req,res){
+
         Stocks.find({},{},function(err,stocks){
+            console.log(stocks)            
             res.render('index.ejs', {
                 data : stocks
             })
